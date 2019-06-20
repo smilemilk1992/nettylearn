@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context" xmlns:tx="http://www.springframework.org/schema/tx"
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xsi:schemaLocation="
+       http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+       http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-4.1.xsd
+       http://www.springframework.org/schema/jdbc http://www.springframework.org/schema/jdbc/spring-jdbc-4.1.xsd
+       http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx-4.1.xsd
+       http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop-4.1.xsd
+        ">
+
+
+    <!--test 引入属性文件，在配置中占位使用 -->
+    <context:property-placeholder location="classpath*:jdbc.properties"/>
+
+    <!--spring rest client -->
+    <bean id="poolingConnectionManager"
+          class="org.apache.http.impl.conn.PoolingHttpClientConnectionManager">
+        <!--整个连接池的并发 -->
+        <property name="maxTotal" value="1000" />
+        <!--每个主机的并发 -->
+        <property name="defaultMaxPerRoute" value="1000" />
+    </bean>
+
+    <!--2 数据库连接池 -->
+    <!--close()方法关闭数据源，所以必须设定destroy-method=”close”属性， 以便Spring容器关闭时，数据源能够正常关闭-->
+    <bean id="basicDataSource" class="com.alibaba.druid.pool.DruidDataSource" init-method="init" destroy-method="close" primary="true">
+        <property name="driverClassName" value="${driverClassName}"/>
+        <property name="url" value="${url}"/>
+        <property name="username" value="${username}"/>
+        <property name="password" value="${password}"/>
+        <!-- 初始化连接大小 -->
+        <property name="initialSize" value="10" />
+        <!-- 连接池最大使用连接数量 -->
+        <property name="maxActive" value="50" />
+        <!-- 连接池最小空闲 -->
+        <property name="minIdle" value="10" />
+        <!-- 获取连接最大等待时间 -->
+        <property name="maxWait" value="5000" />
+        <!-- <property name="poolPreparedStatements" value="true" /> <property name="maxPoolPreparedStatementPerConnectionSize" value="33" /> -->
+        <property name="testOnBorrow" value="true" />
+        <property name="testOnReturn" value="false" />
+        <property name="testWhileIdle" value="true" />
+        <!-- 配置间隔多久才进行一次检测，检测需要关闭的空闲连接，单位是毫秒 -->
+        <property name="timeBetweenEvictionRunsMillis" value="6000" />
+        <!-- 配置一个连接在池中最小生存的时间，单位是毫秒 -->
+        <property name="minEvictableIdleTimeMillis" value="25200000" />
+        <!-- 打开removeAbandoned功能 -->
+        <property name="removeAbandoned" value="true" />
+        <!-- 1800秒，也就是30分钟 -->
+        <property name="removeAbandonedTimeout" value="1800" />
+        <!-- 关闭abanded连接时输出错误日志 -->
+        <property name="logAbandoned" value="true" />
+        <!-- 监控数据库 -->
+        <!-- <property name="filters" value="stat" /> -->
+        <property name="filters" value="stat" />
+        <property name="validationQuery">
+            <value>"select 1"</value>
+        </property>
+    </bean>
+
+
+    <!--3 会话工厂bean sqlSessionFactoryBean-->
+    <!-- mapper配置 -->
+    <!-- 让spring管理sqlsessionfactory 使用mybatis和spring整合包中的 -->
+    <bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+        <!-- 数据库连接池 -->
+        <property name="dataSource" ref="basicDataSource"/>
+        <property name="mapperLocations" value="classpath:smilemilk/PdflybdsMapper.xml"/>
+    </bean>
+
+
+    <!--4 自动扫描对象关系映射 -->
+    <!--开启mapper包扫描-->
+    <!--由MapperScannerConfigurer来扫描对应的Mapper接口并生成对应的MapperFactoryBean-->
+    <bean class="org.mybatis.spring.mapper.MapperScannerConfigurer">
+        <!--指定会话工厂，如果当前上下文中只定义了一个则该属性可省去 -->
+        <property name="sqlSessionFactoryBeanName" value="sqlSessionFactory"></property>
+        <!-- 指定要自动扫描接口的基础包，实现接口 -->
+        <property name="basePackage" value="com.learn.springnetty.Dao"></property>
+    </bean>
+
+    <!--5 声明式事务管理 -->
+    <!-- JDBC数据源的事务管理器 -->
+    <bean id="transactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+        <property name="dataSource" ref="basicDataSource" />
+    </bean>
+    <!--支持注解驱动的事务管理，指定事务管理器 -->
+    <tx:annotation-driven transaction-manager="transactionManager"/>
+
+    <!--6 容器自动扫描IOC组件  -->
+    <context:component-scan base-package="com.learn.springnetty"></context:component-scan>
+
+    <!--7 aspectj支持自动代理实现AOP功能 -->
+    <!--<aop:aspectj-autoproxy proxy-target-class="true"></aop:aspectj-autoproxy>-->
+
+
+
+    <!-- 获得sqlSession  现在有SqlSessionFactoryBean就不推荐用SqlSessionTemplate了-->
+    <!--<bean id="sqlSession" class="org.mybatis.spring.SqlSessionTemplate">-->
+        <!--<constructor-arg index="0" name="sqlSessionFactory" ref="sqlSessionFactory"/>-->
+    <!--</bean>-->
+
+
+
+
+    <!--<bean id="UserMapperDao" class="org.mybatis.spring.mapper.MapperFactoryBean">-->
+        <!--<property name="mapperInterface" value="com.sohu.MybatisSpring.Server.UserMapperDao" />-->
+        <!--<property name="sqlSessionFactory" ref="sqlSessionFactory" />-->
+    <!--</bean>-->
+
+    <!--方法一-->
+    <!--创建一个一个名字（可以用name或者id来表示，唯一标识，不可重复）为dao的bean，class表示它的类（必须是类，不可以是接口或者抽象类）-->
+    <!--这个主要是用来等着被下面的bean使用的-->
+    <!--<bean id="dao" class="com.sohu.MybatisSpring.Dao.DaoImpl"></bean>-->
+
+    <!--创建一个名字为service，类型是ServiceImpl的bean，并且将这个bean注入到ServiceImpl.java的成员变量dao当中-->
+    <!--property 当中的name是成员变量的名字（需要保持一致），ref是指注入的是上面创建的bean-->
+    <!--<bean id="server" class="com.sohu.MybatisSpring.Server.ServerImpl">-->
+        <!--<property name="dao" ref="dao"/>-->
+    <!--</bean>-->
+
+
+    <!--方法二-->
+    <!--<context:annotation-config/>-->
+    <!--<context:component-scan base-package="com.sohu.MybatisSpring.Server,com.sohu.MybatisSpring.Dao"/>-->
+
+
+</beans>

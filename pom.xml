@@ -12,6 +12,7 @@
         <module>netty3</module>
         <module>netty4</module>
         <module>netty5</module>
+        <module>spring-netty</module>
     </modules>
 
 
